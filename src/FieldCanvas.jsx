@@ -75,46 +75,73 @@ export function TacticalPlanner() {
     [draggedPlayer],
   )
 
-  // Calculate field boundaries
+  // Calculate field boundaries accounting for all panels
   const updateFieldBounds = useCallback(() => {
-    if (fieldRef.current) {
-      const rect = fieldRef.current.getBoundingClientRect()
-      const containerRect = containerRef.current?.getBoundingClientRect()
+    if (fieldRef.current && containerRef.current) {
+      const fieldRect = fieldRef.current.getBoundingClientRect()
+      const containerRect = containerRef.current.getBoundingClientRect()
 
-      if (containerRect) {
-        const newBounds = {
-          left: FIELD_PADDING,
-          top: FIELD_PADDING,
-          right: rect.width - FIELD_PADDING,
-          bottom: rect.height - FIELD_PADDING,
-        }
+      // Calculate actual usable field area
+      const actualFieldWidth = fieldRect.width
+      const actualFieldHeight = fieldRect.height
 
+      // Account for bottom menu space - when hidden, field effectively gets taller
+      const bottomMenuHeight = bottomMenuVisible ? 64 : 0 // 64px is approximate bottom menu height
+      const availableHeight = actualFieldHeight + (bottomMenuVisible ? 0 : bottomMenuHeight)
+
+      const newBounds = {
+        left: FIELD_PADDING,
+        top: FIELD_PADDING,
+        right: actualFieldWidth - FIELD_PADDING,
+        bottom: availableHeight - FIELD_PADDING,
+      }
+
+      // Check if bounds changed significantly
+      const boundsChanged =
+        Math.abs(fieldBounds.right - newBounds.right) > 10 ||
+        Math.abs(fieldBounds.bottom - newBounds.bottom) > 10 ||
+        Math.abs(fieldBounds.left - newBounds.left) > 10 ||
+        Math.abs(fieldBounds.top - newBounds.top) > 10
+
+      if (boundsChanged && fieldBounds.right > 0) {
         // Store previous bounds before updating
         setPreviousFieldBounds(fieldBounds)
-        setFieldBounds(newBounds)
 
-        // Adapt player positions if bounds changed significantly
-        const boundsChanged =
-          Math.abs(fieldBounds.right - newBounds.right) > 10 ||
-          Math.abs(fieldBounds.bottom - newBounds.bottom) > 10 ||
-          Math.abs(fieldBounds.left - newBounds.left) > 10 ||
-          Math.abs(fieldBounds.top - newBounds.top) > 10
-
-        if (boundsChanged && fieldBounds.right > 0) {
-          // Use setTimeout to ensure state updates are processed
-          setTimeout(() => {
-            adaptPlayerPositions(fieldBounds, newBounds)
-          }, 100)
-        }
+        // Use setTimeout to ensure smooth adaptation
+        setTimeout(() => {
+          adaptPlayerPositions(fieldBounds, newBounds)
+        }, 150)
       }
-    }
-  }, [fieldBounds, adaptPlayerPositions])
 
+      setFieldBounds(newBounds)
+    }
+  }, [fieldBounds, adaptPlayerPositions, bottomMenuVisible])
+
+  // Trigger field bounds update when panels change
   useEffect(() => {
-    updateFieldBounds()
-    window.addEventListener("resize", updateFieldBounds)
-    return () => window.removeEventListener("resize", updateFieldBounds)
-  }, [updateFieldBounds, sidebarVisible, bottomMenuVisible, navbarVisible])
+    // Add a small delay to allow CSS transitions to start
+    const timer = setTimeout(() => {
+      updateFieldBounds()
+    }, 50)
+
+    return () => clearTimeout(timer)
+  }, [sidebarVisible, bottomMenuVisible, navbarVisible])
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setTimeout(updateFieldBounds, 100)
+    }
+
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [updateFieldBounds])
+
+  // Initial bounds calculation
+  useEffect(() => {
+    const timer = setTimeout(updateFieldBounds, 200)
+    return () => clearTimeout(timer)
+  }, [])
 
   // Constrain position within field bounds
   const constrainPosition = useCallback(
