@@ -338,7 +338,7 @@ export default function Management() {
       const maxRel = 1 - minRel
 
       return {
-        x: Math.max(minRel, Math.min(0.5, relX)), // Keep players in left half (max 0.5)
+        x: Math.max(minRel, Math.min(maxRel, relX)), // Allow full field movement (0 to 1)
         y: Math.max(minRel, Math.min(maxRel, relY)),
       }
     },
